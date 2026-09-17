@@ -10,3 +10,6 @@ backend/generated/
 
 # Real employee names from the client's SKUD export - never belongs in git history.
 Report/*.html
+
+# Local project notes/context for resuming work later - not for git.
+CONTEXT.md

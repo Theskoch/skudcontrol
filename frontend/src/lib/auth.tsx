@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "./api";
 import type { CurrentUser } from "./types";
 
@@ -40,15 +40,19 @@ export function useAuth(): AuthContextValue {
 }
 
 export function useLogout() {
-  const queryClient = useQueryClient();
   return async () => {
     try {
       await api.post("/auth/logout");
     } catch {
-      // Even if the request fails (network blip, etc.), still drop the local
-      // session state below - a stuck "Выйти" button is worse than a cookie
-      // that lingers server-side until it expires on its own.
+      // Even if the request fails (network blip, etc.), the caller still
+      // does a hard navigation to /login below - a stuck "Выйти" button is
+      // worse than a cookie that lingers server-side until it expires on its own.
     }
-    queryClient.setQueryData(["auth", "me"], null);
+    // Deliberately NOT touching the React Query cache here: the caller does a
+    // full page reload right after this resolves, which already wipes all
+    // client state. Mutating the cache too raced ProtectedRoute's own
+    // auth-state watch, which could momentarily redirect via client-side
+    // routing a beat before the hard navigation fired, flashing between the
+    // two and making logout look like it "bounced back."
   };
 }
