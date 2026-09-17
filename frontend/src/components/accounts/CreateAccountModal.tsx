@@ -51,8 +51,13 @@ export function CreateAccountModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setUsername(e.target.value)}
               required
               minLength={3}
+              maxLength={32}
+              pattern="[a-z0-9][a-z0-9._-]{1,30}[a-z0-9]"
+              title="Строчные латинские буквы, цифры, точка, подчёркивание, дефис (3-32 символа)"
+              placeholder="ivanov"
               className="w-full rounded-lg border border-line-hairline bg-surface-raised px-3 py-2 text-ink-primary outline-none focus:border-accent-violet"
             />
+            <p className="mt-1 text-xs text-ink-muted">Строчные латинские буквы, цифры, . _ - (3-32 символа)</p>
           </div>
           <div className="mb-4">
             <label className="mb-1.5 block text-sm text-ink-secondary">Пароль</label>
@@ -62,8 +67,10 @@ export function CreateAccountModal({ onClose }: { onClose: () => void }) {
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={6}
+              maxLength={72}
               className="w-full rounded-lg border border-line-hairline bg-surface-raised px-3 py-2 text-ink-primary outline-none focus:border-accent-violet"
             />
+            <p className="mt-1 text-xs text-ink-muted">6-72 символа, без пробелов в начале/конце</p>
           </div>
           <div className="mb-4">
             <label className="mb-1.5 block text-sm text-ink-secondary">Роль</label>

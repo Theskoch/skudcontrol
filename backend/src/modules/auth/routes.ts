@@ -5,8 +5,11 @@ import { signToken, AUTH_COOKIE_NAME } from "../../lib/jwt.js";
 import { env } from "../../config/env.js";
 
 const loginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  // Deliberately just a sane length cap, not the stricter character rules new
+  // accounts are created with - login has to keep accepting whatever's
+  // already stored, including accounts created before that validation existed.
+  username: z.string().min(1).max(64),
+  password: z.string().min(1).max(200),
 });
 
 export default async function authRoutes(app: FastifyInstance) {

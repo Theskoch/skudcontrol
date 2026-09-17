@@ -44,8 +44,10 @@ export function ResetPasswordModal({ account, onClose }: { account: Account; onC
                 autoFocus
                 required
                 minLength={6}
+                maxLength={72}
                 className="w-full rounded-lg border border-line-hairline bg-surface-raised px-3 py-2 font-mono text-ink-primary outline-none focus:border-accent-violet"
               />
+              <p className="mt-1 text-xs text-ink-muted">6-72 символа, без пробелов в начале/конце</p>
             </div>
             {error && (
               <div className="mb-4 rounded-lg border border-status-critical/40 bg-status-critical/10 px-3 py-2 text-sm text-status-critical">
