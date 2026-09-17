@@ -4,12 +4,19 @@ import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
 export function LoginPage() {
-  const { user, refetch } = useAuth();
+  const { user, isLoading, refetch } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Wait for the initial auth check before deciding anything - otherwise the
+  // form flashes on screen for a moment on every load while /auth/me is still
+  // in flight, even when the answer turns out to be "yes, still logged in".
+  if (isLoading) {
+    return <div className="flex h-screen items-center justify-center text-ink-muted">Загрузка...</div>;
+  }
 
   if (user) return <Navigate to="/" replace />;
 

@@ -50,10 +50,18 @@ export default async function authRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/auth/logout", async (_req, reply) => {
-    reply.clearCookie(AUTH_COOKIE_NAME, { path: "/" }).send({ ok: true });
+    reply
+      .clearCookie(AUTH_COOKIE_NAME, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: env.cookieSecure,
+        path: "/",
+      })
+      .send({ ok: true });
   });
 
   app.get("/api/auth/me", { preHandler: app.requireAuth }, async (req, reply) => {
+    reply.header("Cache-Control", "no-store");
     const account = await app.prisma.account.findUnique({ where: { id: req.user!.sub } });
     if (!account) return reply.code(401).send({ error: "Не авторизован" });
     return {
