@@ -42,7 +42,13 @@ export function useAuth(): AuthContextValue {
 export function useLogout() {
   const queryClient = useQueryClient();
   return async () => {
-    await api.post("/auth/logout");
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Even if the request fails (network blip, etc.), still drop the local
+      // session state below - a stuck "Выйти" button is worse than a cookie
+      // that lingers server-side until it expires on its own.
+    }
     queryClient.setQueryData(["auth", "me"], null);
   };
 }
