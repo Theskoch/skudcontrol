@@ -1,0 +1,12 @@
+data/
+.env
+node_modules/
+dist/
+build/
+.DS_Store
+*.log
+backend/generated/
+*.tsbuildinfo
+
+# Real employee names from the client's SKUD export - never belongs in git history.
+Report/*.html

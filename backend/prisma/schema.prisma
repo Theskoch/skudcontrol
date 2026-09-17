@@ -1,0 +1,151 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum EventType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum EventSource {
+  MANUAL
+  DEVICE
+  IMPORTED
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum NetworkSessionSource {
+  UNIFI
+  MANUAL
+}
+
+model Account {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  passwordHash String
+  role         Role      @default(USER)
+  displayName  String
+  isBlocked    Boolean   @default(false) @map("is_blocked")
+  isPrimary    Boolean   @default(false) @map("is_primary")
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now())
+  lastLoginAt  DateTime?
+
+  createdEmployees Employee[]         @relation("EmployeeCreatedBy")
+  createdEvents    AttendanceEvent[]  @relation("EventCreatedBy")
+  auditEntries     AttendanceAudit[]  @relation("AuditEditedBy")
+  createdApiKeys   ApiKey[]
+
+  @@map("accounts")
+}
+
+model Employee {
+  id               String    @id @default(uuid())
+  fullName         String
+  personnelNumber  String?
+  serialNumber     String?
+  macAddress       String?
+  isActive         Boolean   @default(true)
+  deletionMarkedAt DateTime? @map("deletion_marked_at")
+  notes            String?
+  createdById      String?   @map("created_by")
+  createdBy        Account?  @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  events AttendanceEvent[]
+  audits AttendanceAudit[]
+
+  @@map("employees")
+}
+
+model AttendanceEvent {
+  id          String      @id @default(uuid())
+  employeeId  String      @map("employee_id")
+  employee    Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  eventType   EventType   @map("event_type")
+  occurredAt  DateTime    @map("occurred_at")
+  source      EventSource @default(MANUAL)
+  createdById String?     @map("created_by")
+  createdBy   Account?    @relation("EventCreatedBy", fields: [createdById], references: [id])
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  audits AttendanceAudit[]
+
+  @@index([employeeId, occurredAt])
+  @@map("attendance_events")
+}
+
+model AttendanceAudit {
+  id                String           @id @default(uuid())
+  attendanceEventId String?          @map("attendance_event_id")
+  attendanceEvent   AttendanceEvent? @relation(fields: [attendanceEventId], references: [id], onDelete: SetNull)
+  employeeId        String           @map("employee_id")
+  employee          Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  action            AuditAction
+  previousValue     Json?            @map("previous_value")
+  newValue          Json?            @map("new_value")
+  editedById        String           @map("edited_by")
+  editedBy          Account          @relation("AuditEditedBy", fields: [editedById], references: [id])
+  editedAt          DateTime         @default(now()) @map("edited_at")
+  reason            String?
+
+  @@index([employeeId, editedAt])
+  @@map("attendance_event_audit")
+}
+
+model AppSetting {
+  key   String @id
+  value Json
+
+  @@map("app_settings")
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyPrefix   String    @map("key_prefix")
+  expiresAt   DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdById String?   @map("created_by")
+  createdBy   Account?  @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime? @map("last_used_at")
+
+  @@map("api_keys")
+}
+
+model NetworkSession {
+  id         String               @id @default(uuid())
+  macAddress String               @map("mac_address")
+  startedAt  DateTime             @map("started_at")
+  endedAt    DateTime?            @map("ended_at")
+  source     NetworkSessionSource @default(UNIFI)
+  apLabel    String?              @map("ap_label")
+  rxBytes    BigInt?              @map("rx_bytes")
+  txBytes    BigInt?              @map("tx_bytes")
+  createdAt  DateTime             @default(now())
+
+  @@unique([macAddress, startedAt])
+  @@index([macAddress, startedAt])
+  @@map("network_sessions")
+}
