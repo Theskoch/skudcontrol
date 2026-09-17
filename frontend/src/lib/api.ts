@@ -7,9 +7,13 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // Only send Content-Type: application/json when there's actually a body -
+  // Fastify's JSON body parser rejects a request that declares this
+  // content type but has an empty body with a 400, which silently broke
+  // every bodyless POST/PATCH/DELETE call (logout, block/unblock, deletes).
   const res = await fetch(`/api${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
+    ...(init?.body !== undefined ? { headers: { "Content-Type": "application/json" } } : {}),
     ...init,
   });
 
