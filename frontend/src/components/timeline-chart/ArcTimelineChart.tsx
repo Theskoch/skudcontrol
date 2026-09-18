@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { NetworkInterval, NetworkTimelineDay, Thresholds, TimelineDay } from "../../lib/types";
+import type { CombinedTimelineDay, NetworkInterval, NetworkTimelineDay, Thresholds, TimelineDay } from "../../lib/types";
 import { formatDayKey, formatTime, minutesSinceMidnight, todayDayKey } from "../../lib/time";
 import { SKUD_HEX, WIFI_HEX } from "./seriesColors";
 
@@ -17,6 +17,12 @@ const SKUD_MAX_ARCH = 62;
 const WIFI_MAX_ARCH = 36;
 const HIT_STROKE_WIDTH = 12; // wide invisible stroke so hover follows each curve's own shape
 
+// The "on site" span - drawn first (so it sits behind the SKUD/Wi-Fi curves
+// and their markers) and reused as-is; its edges are the blended
+// arrival/departure boundary the average-time metric actually counts.
+const WORKPLACE_HEX = "#0ca30c"; // matches the app's status-good hue
+const WORKPLACE_TOP_Y = 10;
+
 function pct(minutes: number): string {
   return `${(Math.min(Math.max(minutes, 0), MINUTES_IN_DAY) / MINUTES_IN_DAY) * 100}%`;
 }
@@ -24,10 +30,12 @@ function pct(minutes: number): string {
 export function ArcTimelineChart({
   timeline,
   networkTimeline,
+  combinedTimeline,
   thresholds,
 }: {
   timeline: TimelineDay[];
   networkTimeline: NetworkTimelineDay[];
+  combinedTimeline: CombinedTimelineDay[];
   thresholds: Thresholds;
 }) {
   if (timeline.length === 0 && networkTimeline.length === 0) {
@@ -39,6 +47,7 @@ export function ArcTimelineChart({
   }
 
   const networkByDay = new Map(networkTimeline.map((d) => [d.dayKey, d.intervals]));
+  const combinedByDay = new Map(combinedTimeline.map((d) => [d.dayKey, d]));
   const dayKeys = [...new Set([...timeline.map((d) => d.dayKey), ...networkTimeline.map((d) => d.dayKey)])].sort();
   const rowHeight = dayKeys.length === 1 ? "h-28" : "h-16";
 
@@ -52,6 +61,7 @@ export function ArcTimelineChart({
             dayKey={dayKey}
             sessions={timeline.find((d) => d.dayKey === dayKey)?.sessions ?? []}
             networkIntervals={networkByDay.get(dayKey) ?? []}
+            combined={combinedByDay.get(dayKey)}
             thresholds={thresholds}
             rowHeightClass={rowHeight}
           />
@@ -135,18 +145,29 @@ function DayRow({
   dayKey,
   sessions,
   networkIntervals,
+  combined,
   thresholds,
   rowHeightClass,
 }: {
   dayKey: string;
   sessions: TimelineDay["sessions"];
   networkIntervals: NetworkInterval[];
+  combined: CombinedTimelineDay | undefined;
   thresholds: Thresholds;
   rowHeightClass: string;
 }) {
   const isToday = dayKey === todayDayKey();
   const nowMinutes = minutesSinceMidnight(new Date().toISOString());
   const [hover, setHover] = useState<HoverInfo | null>(null);
+
+  const workplaceSpan =
+    combined?.arrival && combined?.departure
+      ? { startMin: minutesSinceMidnight(combined.arrival), endMin: minutesSinceMidnight(combined.departure) }
+      : null;
+  const workplaceLabel =
+    combined?.arrival && combined?.departure
+      ? `На месте: ${formatTime(combined.arrival)} — ${formatTime(combined.departure)}`
+      : "";
 
   return (
     <div className="flex items-center gap-3">
@@ -168,6 +189,37 @@ function DayRow({
             strokeWidth={1}
             vectorEffect="non-scaling-stroke"
           />
+
+          {workplaceSpan && workplaceSpan.endMin > workplaceSpan.startMin && (
+            <g pointerEvents="none">
+              <rect
+                x={workplaceSpan.startMin}
+                y={WORKPLACE_TOP_Y}
+                width={workplaceSpan.endMin - workplaceSpan.startMin}
+                height={BASE_Y - WORKPLACE_TOP_Y}
+                fill={WORKPLACE_HEX}
+                fillOpacity={0.14}
+              />
+              <line
+                x1={workplaceSpan.startMin}
+                y1={BASE_Y}
+                x2={workplaceSpan.startMin}
+                y2={WORKPLACE_TOP_Y}
+                stroke={WORKPLACE_HEX}
+                strokeWidth={2}
+                vectorEffect="non-scaling-stroke"
+              />
+              <line
+                x1={workplaceSpan.endMin}
+                y1={BASE_Y}
+                x2={workplaceSpan.endMin}
+                y2={WORKPLACE_TOP_Y}
+                stroke={WORKPLACE_HEX}
+                strokeWidth={2}
+                vectorEffect="non-scaling-stroke"
+              />
+            </g>
+          )}
 
           {(() => {
             const span = computeSkudSpan(sessions);
@@ -308,6 +360,23 @@ function DayRow({
           })}
         </svg>
 
+        {workplaceSpan && (
+          <>
+            <EndPoint
+              atPct={pct(workplaceSpan.startMin)}
+              color={WORKPLACE_HEX}
+              onEnter={() => setHover({ xPct: pctNum(workplaceSpan.startMin), label: workplaceLabel })}
+              onLeave={() => setHover(null)}
+            />
+            <EndPoint
+              atPct={pct(workplaceSpan.endMin)}
+              color={WORKPLACE_HEX}
+              onEnter={() => setHover({ xPct: pctNum(workplaceSpan.endMin), label: workplaceLabel })}
+              onLeave={() => setHover(null)}
+            />
+          </>
+        )}
+
         {(() => {
           const span = computeSkudSpan(sessions);
           if (span) {
@@ -410,6 +479,13 @@ function EndPoint({
 function Legend() {
   return (
     <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-line-hairline pt-3 text-xs text-ink-muted">
+      <span className="flex items-center gap-1.5">
+        <span
+          className="h-2 w-4 rounded-sm"
+          style={{ backgroundColor: WORKPLACE_HEX, opacity: 0.4 }}
+        />
+        на месте
+      </span>
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SKUD_HEX }} />
         СКУД

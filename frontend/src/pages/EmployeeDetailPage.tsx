@@ -57,6 +57,7 @@ export function EmployeeDetailPage() {
           <ArcTimelineChart
             timeline={data.timeline}
             networkTimeline={data.networkTimeline}
+            combinedTimeline={data.combinedTimeline}
             thresholds={data.thresholds}
           />
           <AttendanceLog timeline={data.timeline} networkTimeline={data.networkTimeline} />

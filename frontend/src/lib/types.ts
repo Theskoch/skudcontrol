@@ -64,6 +64,12 @@ export type NetworkTimelineDay = {
   intervals: NetworkInterval[];
 };
 
+export type CombinedTimelineDay = {
+  dayKey: string;
+  arrival: string | null;
+  departure: string | null;
+};
+
 export type PeriodMetrics = {
   workedMinutes: number;
   normMinutes: number;
@@ -127,4 +133,5 @@ export type EmployeeDashboard = {
   period: PeriodMetrics;
   timeline: TimelineDay[];
   networkTimeline: NetworkTimelineDay[];
+  combinedTimeline: CombinedTimelineDay[];
 };

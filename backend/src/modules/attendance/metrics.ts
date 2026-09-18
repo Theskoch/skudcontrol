@@ -183,11 +183,13 @@ export type DailyMetrics = {
 
 export type TimelineDay = { dayKey: string; sessions: Session[] };
 export type NetworkTimelineDay = { dayKey: string; intervals: NetworkInterval[] };
+export type CombinedTimelineDay = { dayKey: string; arrival: Date | null; departure: Date | null };
 
 export type DashboardData = {
   period: DailyMetrics;
   timeline: TimelineDay[];
   networkTimeline: NetworkTimelineDay[];
+  combinedTimeline: CombinedTimelineDay[];
 };
 
 export async function computeDashboard(
@@ -266,6 +268,10 @@ export async function computeDashboard(
   const absenceDays = Math.max(0, calendarDays - activeDays);
   const absenceMinutes = absenceDays * thresholds.normMinutesPerDay;
 
+  const combinedTimeline: CombinedTimelineDay[] = [...combined.values()]
+    .map((day) => ({ dayKey: day.dayKey, arrival: day.arrival?.time ?? null, departure: day.departure?.time ?? null }))
+    .sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+
   return {
     period: {
       workedMinutes,
@@ -280,6 +286,7 @@ export async function computeDashboard(
     },
     timeline,
     networkTimeline,
+    combinedTimeline,
   };
 }
 
