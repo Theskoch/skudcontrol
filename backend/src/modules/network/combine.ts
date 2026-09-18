@@ -15,7 +15,13 @@ export type CombinedDay = {
 
 function skudDayBoundaries(sessions: Session[]): { firstIn: Date | null; lastOut: Date | null } {
   const withCheckIn = sessions.filter((s) => s.checkIn);
-  const withCheckOut = sessions.filter((s) => s.checkOut && !s.incomplete);
+  // Deliberately not excluding `incomplete` sessions here: a stray orphan
+  // CHECK_OUT (no matching check-in - e.g. a duplicate badge swipe) is
+  // still a real recorded departure timestamp, just one pairEventsIntoSessions
+  // couldn't attach to a session. Excluding it made the last-departure
+  // boundary silently fall back to an earlier, "complete" session's checkout
+  // even when a later checkout was on record for that day.
+  const withCheckOut = sessions.filter((s) => s.checkOut);
   const firstIn = withCheckIn.length
     ? withCheckIn.reduce((min, s) => (s.checkIn! < min ? s.checkIn! : min), withCheckIn[0].checkIn!)
     : null;
