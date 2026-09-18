@@ -157,7 +157,7 @@ export async function computeAverages(
     const networkByDay = groupIntervalsByDay(
       intervalsWithinRange(networkByEmployee.get(id) ?? [], timeZone, range),
     );
-    const combined = combineAllDays(skudByDay, networkByDay);
+    const combined = combineAllDays(skudByDay, networkByDay, thresholds.boundaryDisagreementMinutes);
 
     const activeDays = combined.size;
     let totalMinutes = 0;
@@ -223,7 +223,7 @@ export async function computeDashboard(
   );
   const networkByDay = groupIntervalsByDay(networkIntervals);
 
-  const combined = combineAllDays(skudByDay, networkByDay);
+  const combined = combineAllDays(skudByDay, networkByDay, thresholds.boundaryDisagreementMinutes);
 
   const skudDayKeys = [...skudByDay.keys()].sort();
   const timeline: TimelineDay[] = skudDayKeys.map((dayKey) => ({

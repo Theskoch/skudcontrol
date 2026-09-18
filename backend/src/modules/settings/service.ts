@@ -9,6 +9,7 @@ export type Thresholds = {
   expectedEndMinutes: number;
   networkGapMergeMinutes: number;
   networkMinBytesPerMinute: number;
+  boundaryDisagreementMinutes: number;
 };
 
 export const DEFAULT_THRESHOLDS: Thresholds = {
@@ -20,6 +21,11 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   expectedEndMinutes: 18 * 60,
   networkGapMergeMinutes: 90, // 1.5h Wi-Fi disconnect grace period
   networkMinBytesPerMinute: 300, // rough placeholder, needs calibration against real traffic
+  // SKUD and Wi-Fi arrival/departure timestamps within this gap of each
+  // other get averaged; beyond it, one side is likely wrong/misleading
+  // (e.g. Wi-Fi dropped early), so trust whichever extends the workday
+  // instead of diluting the estimate toward the middle.
+  boundaryDisagreementMinutes: 30,
 };
 
 export async function getThresholds(prisma: PrismaClient): Promise<Thresholds> {
@@ -39,6 +45,8 @@ export async function getThresholds(prisma: PrismaClient): Promise<Thresholds> {
       (map.get("networkGapMergeMinutes") as number) ?? DEFAULT_THRESHOLDS.networkGapMergeMinutes,
     networkMinBytesPerMinute:
       (map.get("networkMinBytesPerMinute") as number) ?? DEFAULT_THRESHOLDS.networkMinBytesPerMinute,
+    boundaryDisagreementMinutes:
+      (map.get("boundaryDisagreementMinutes") as number) ?? DEFAULT_THRESHOLDS.boundaryDisagreementMinutes,
   };
 }
 

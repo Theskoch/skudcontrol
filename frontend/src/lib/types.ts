@@ -85,6 +85,7 @@ export type Thresholds = {
   expectedEndMinutes: number;
   networkGapMergeMinutes: number;
   networkMinBytesPerMinute: number;
+  boundaryDisagreementMinutes: number;
 };
 
 export type Account = {

@@ -43,10 +43,25 @@ function wifiDayBoundaries(intervals: NetworkInterval[]): { firstIn: Date | null
 
 /**
  * Both sources are equally trusted: when both have a timestamp for this
- * boundary, split the difference rather than picking one over the other.
+ * boundary and they're close (within `disagreementMinutes`), split the
+ * difference. When they're far apart, averaging would just water down
+ * whichever source is actually right, so instead trust whichever one
+ * extends the workday - the earlier of the two for arrival, the later of
+ * the two for departure.
  */
-function pickAverage(skud: Date | null, wifi: Date | null): CombinedBoundary | null {
+function pickBoundary(
+  skud: Date | null,
+  wifi: Date | null,
+  disagreementMinutes: number,
+  preferWhenFar: "earliest" | "latest",
+): CombinedBoundary | null {
   if (skud && wifi) {
+    const diffMinutes = Math.abs(skud.getTime() - wifi.getTime()) / 60_000;
+    if (diffMinutes > disagreementMinutes) {
+      const chosen =
+        preferWhenFar === "earliest" ? (skud <= wifi ? skud : wifi) : skud >= wifi ? skud : wifi;
+      return { time: chosen, source: chosen === skud ? "SKUD" : "WIFI" };
+    }
     return { time: new Date((skud.getTime() + wifi.getTime()) / 2), source: "BOTH" };
   }
   if (skud) return { time: skud, source: "SKUD" };
@@ -54,12 +69,17 @@ function pickAverage(skud: Date | null, wifi: Date | null): CombinedBoundary | n
   return null;
 }
 
-export function combineDay(dayKey: string, skudSessions: Session[], networkIntervals: NetworkInterval[]): CombinedDay {
+export function combineDay(
+  dayKey: string,
+  skudSessions: Session[],
+  networkIntervals: NetworkInterval[],
+  disagreementMinutes: number,
+): CombinedDay {
   const skud = skudDayBoundaries(skudSessions);
   const wifi = wifiDayBoundaries(networkIntervals);
 
-  const arrival = pickAverage(skud.firstIn, wifi.firstIn);
-  const departure = pickAverage(skud.lastOut, wifi.lastOut);
+  const arrival = pickBoundary(skud.firstIn, wifi.firstIn, disagreementMinutes, "earliest");
+  const departure = pickBoundary(skud.lastOut, wifi.lastOut, disagreementMinutes, "latest");
 
   const workedMinutes =
     arrival && departure
@@ -79,11 +99,15 @@ export function combineDay(dayKey: string, skudSessions: Session[], networkInter
 export function combineAllDays(
   skudByDay: Map<string, Session[]>,
   networkByDay: Map<string, NetworkInterval[]>,
+  disagreementMinutes: number,
 ): Map<string, CombinedDay> {
   const dayKeys = new Set([...skudByDay.keys(), ...networkByDay.keys()]);
   const result = new Map<string, CombinedDay>();
   for (const dayKey of dayKeys) {
-    result.set(dayKey, combineDay(dayKey, skudByDay.get(dayKey) ?? [], networkByDay.get(dayKey) ?? []));
+    result.set(
+      dayKey,
+      combineDay(dayKey, skudByDay.get(dayKey) ?? [], networkByDay.get(dayKey) ?? [], disagreementMinutes),
+    );
   }
   return result;
 }
