@@ -95,6 +95,42 @@ function openArchPath(x0: number, xNow: number, peakY: number): string {
 
 type HoverInfo = { xPct: number; label: string };
 
+type SkudSpan =
+  | { startMin: number; checkInAt: string; isOpen: true }
+  | { startMin: number; checkInAt: string; isOpen: false; endMin: number; checkOutAt: string };
+
+/**
+ * Raw SKUD events sometimes carry a stray extra CHECK_OUT (e.g. a duplicate
+ * badge swipe) that `pairEventsIntoSessions` can't attach to anything, so it
+ * shows up as its own tiny orphan session. Rather than draw one arc per raw
+ * session (which would stop at the first checkout and leave the later one
+ * dangling), the day's SKUD arc always spans first arrival to last
+ * departure across every session that day - the raw events themselves are
+ * untouched and still listed as-is in the event log below the chart.
+ */
+function computeSkudSpan(sessions: TimelineDay["sessions"]): SkudSpan | null {
+  const withCheckIn = sessions.filter((s) => s.checkIn);
+  if (withCheckIn.length === 0) return null;
+
+  const earliest = withCheckIn.reduce((a, b) => (a.checkIn! < b.checkIn! ? a : b));
+  const startMin = minutesSinceMidnight(earliest.checkIn!);
+
+  const last = sessions[sessions.length - 1];
+  const withCheckOut = sessions.filter((s) => s.checkOut);
+  if ((last.checkIn && !last.checkOut) || withCheckOut.length === 0) {
+    return { startMin, checkInAt: earliest.checkIn!, isOpen: true };
+  }
+
+  const latest = withCheckOut.reduce((a, b) => (a.checkOut! > b.checkOut! ? a : b));
+  return {
+    startMin,
+    checkInAt: earliest.checkIn!,
+    isOpen: false,
+    endMin: minutesSinceMidnight(latest.checkOut!),
+    checkOutAt: latest.checkOut!,
+  };
+}
+
 function DayRow({
   dayKey,
   sessions,
@@ -133,17 +169,18 @@ function DayRow({
             vectorEffect="non-scaling-stroke"
           />
 
-          {sessions.map((session, idx) => {
-            if (!session.checkIn) return null;
-            const startMin = minutesSinceMidnight(session.checkIn);
+          {(() => {
+            const span = computeSkudSpan(sessions);
+            if (!span) return null;
 
-            if (!session.checkOut) {
+            if (span.isOpen) {
+              const { startMin } = span;
               const endMin = isToday ? nowMinutes : MINUTES_IN_DAY;
               const peakY = BASE_Y - Math.min(SKUD_MAX_ARCH, Math.max(endMin - startMin, 20) * 0.9);
               const d = openArchPath(startMin, endMin, peakY);
-              const label = `СКУД: ${formatTime(session.checkIn)} — сейчас · не завершено`;
+              const label = `СКУД: ${formatTime(span.checkInAt)} — сейчас · не завершено`;
               return (
-                <g key={`skud-open-${idx}`}>
+                <g key="skud-open">
                   <path
                     d={d}
                     fill="none"
@@ -169,13 +206,13 @@ function DayRow({
               );
             }
 
-            const endMin = minutesSinceMidnight(session.checkOut);
+            const { startMin, endMin } = span;
             const widthMin = Math.max(endMin - startMin, 4);
             const peakY = BASE_Y - Math.min(SKUD_MAX_ARCH, widthMin * 0.9);
             const d = archPath(startMin, endMin, peakY);
-            const label = `СКУД: ${formatTime(session.checkIn)} — ${formatTime(session.checkOut)} · ${formatDuration(session.durationMinutes)}`;
+            const label = `СКУД: ${formatTime(span.checkInAt)} — ${formatTime(span.checkOutAt)} · ${formatDuration(endMin - startMin)}`;
             return (
-              <g key={`skud-${idx}`}>
+              <g key="skud-arc">
                 <path
                   d={d}
                   fill="none"
@@ -198,7 +235,7 @@ function DayRow({
                 />
               </g>
             );
-          })}
+          })()}
 
           {networkIntervals.map((interval, idx) => {
             const startMin = minutesSinceMidnight(interval.startedAt);
@@ -271,30 +308,33 @@ function DayRow({
           })}
         </svg>
 
-        {sessions.map((session, idx) => {
-          if (!session.checkIn) {
-            const at = minutesSinceMidnight(session.checkOut!);
+        {(() => {
+          const span = computeSkudSpan(sessions);
+          if (span) {
             return (
-              <EndPoint
-                key={`skud-marker-${idx}`}
-                atPct={pct(at)}
-                color={SKUD_HEX}
-                dim
-                onEnter={() =>
-                  setHover({ xPct: at, label: `СКУД: уход без прихода · ${formatTime(session.checkOut!)}` })
-                }
-                onLeave={() => setHover(null)}
-              />
+              <>
+                <EndPoint atPct={pct(span.startMin)} color={SKUD_HEX} />
+                {!span.isOpen && <EndPoint atPct={pct(span.endMin)} color={SKUD_HEX} />}
+              </>
             );
           }
-          const startMin = minutesSinceMidnight(session.checkIn);
-          return (
-            <span key={`skud-dot-in-${idx}`}>
-              <EndPoint atPct={pct(startMin)} color={SKUD_HEX} />
-              {session.checkOut && <EndPoint atPct={pct(minutesSinceMidnight(session.checkOut))} color={SKUD_HEX} />}
-            </span>
-          );
-        })}
+          // No arrival recorded at all this day - just the stray departure(s), dimmed.
+          return sessions
+            .filter((s) => !s.checkIn && s.checkOut)
+            .map((s, idx) => {
+              const at = minutesSinceMidnight(s.checkOut!);
+              return (
+                <EndPoint
+                  key={`skud-orphan-${idx}`}
+                  atPct={pct(at)}
+                  color={SKUD_HEX}
+                  dim
+                  onEnter={() => setHover({ xPct: at, label: `СКУД: уход без прихода · ${formatTime(s.checkOut!)}` })}
+                  onLeave={() => setHover(null)}
+                />
+              );
+            });
+        })()}
 
         {networkIntervals.map((interval, idx) => (
           <span key={`wifi-dot-${idx}`}>
