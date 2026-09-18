@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import { colorBandFor } from "../lib/colorBand";
 import type { EmployeeDashboard, RangeKey } from "../lib/types";
 import { HeroScore } from "../components/employee-dashboard/HeroScore";
 import { EmployeeInfoCard, PeriodMetricsCard } from "../components/employee-dashboard/MetricsPanel";
@@ -27,6 +28,9 @@ export function EmployeeDetailPage() {
     return <div className="py-12 text-center text-ink-muted">Загрузка...</div>;
   }
 
+  const heroColorBand =
+    data.period.activeDays > 0 ? colorBandFor(data.period.averageMinutes, data.thresholds) : "none";
+
   return (
     <div>
       <Link to="/" className="text-sm text-ink-muted hover:text-ink-primary">
@@ -36,11 +40,7 @@ export function EmployeeDetailPage() {
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
         <div className="space-y-6">
           <EmployeeInfoCard employee={data.employee} />
-          <HeroScore
-            minutes={data.average.avgMinutes}
-            colorBand={data.average.colorBand}
-            windowDays={data.thresholds.avgWindowDays}
-          />
+          <HeroScore minutes={data.period.averageMinutes} colorBand={heroColorBand} range={range} />
           <PeriodMetricsCard period={data.period} />
           {user?.role === "ADMIN" && (
             <button

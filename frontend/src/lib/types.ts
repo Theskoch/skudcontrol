@@ -84,7 +84,6 @@ export type Thresholds = {
   expectedStartMinutes: number;
   expectedEndMinutes: number;
   networkGapMergeMinutes: number;
-  networkMergeToleranceMinutes: number;
   networkMinBytesPerMinute: number;
 };
 
@@ -124,7 +123,6 @@ export type ApiKeyExpiry = "1m" | "6m" | "1y" | "never";
 export type EmployeeDashboard = {
   employee: Employee;
   thresholds: Thresholds;
-  average: { avgMinutes: number; colorBand: ColorBand; activeDays: number };
   period: PeriodMetrics;
   timeline: TimelineDay[];
   networkTimeline: NetworkTimelineDay[];

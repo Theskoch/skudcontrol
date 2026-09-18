@@ -157,7 +157,7 @@ export async function computeAverages(
     const networkByDay = groupIntervalsByDay(
       intervalsWithinRange(networkByEmployee.get(id) ?? [], timeZone, range),
     );
-    const combined = combineAllDays(skudByDay, networkByDay, thresholds.networkMergeToleranceMinutes);
+    const combined = combineAllDays(skudByDay, networkByDay);
 
     const activeDays = combined.size;
     let totalMinutes = 0;
@@ -185,7 +185,6 @@ export type TimelineDay = { dayKey: string; sessions: Session[] };
 export type NetworkTimelineDay = { dayKey: string; intervals: NetworkInterval[] };
 
 export type DashboardData = {
-  average: AverageResult;
   period: DailyMetrics;
   timeline: TimelineDay[];
   networkTimeline: NetworkTimelineDay[];
@@ -199,8 +198,6 @@ export async function computeDashboard(
   thresholds: Thresholds,
   now: Date,
 ): Promise<DashboardData> {
-  const [average] = [...(await computeAverages(prisma, [employeeId], timeZone, thresholds, now)).values()];
-
   const resolvedRange = resolveRange(range, timeZone, now);
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -226,7 +223,7 @@ export async function computeDashboard(
   );
   const networkByDay = groupIntervalsByDay(networkIntervals);
 
-  const combined = combineAllDays(skudByDay, networkByDay, thresholds.networkMergeToleranceMinutes);
+  const combined = combineAllDays(skudByDay, networkByDay);
 
   const skudDayKeys = [...skudByDay.keys()].sort();
   const timeline: TimelineDay[] = skudDayKeys.map((dayKey) => ({
@@ -270,7 +267,6 @@ export async function computeDashboard(
   const absenceMinutes = absenceDays * thresholds.normMinutesPerDay;
 
   return {
-    average,
     period: {
       workedMinutes,
       normMinutes,

@@ -35,30 +35,25 @@ function wifiDayBoundaries(intervals: NetworkInterval[]): { firstIn: Date | null
   return { firstIn, lastOut };
 }
 
-/** Both sources are equally trusted: for each boundary, the earlier of the two available timestamps wins. */
-function pickEarlier(skud: Date | null, wifi: Date | null, toleranceMinutes: number): CombinedBoundary | null {
+/**
+ * Both sources are equally trusted: when both have a timestamp for this
+ * boundary, split the difference rather than picking one over the other.
+ */
+function pickAverage(skud: Date | null, wifi: Date | null): CombinedBoundary | null {
   if (skud && wifi) {
-    const earlier = skud <= wifi ? skud : wifi;
-    const diffMinutes = Math.abs(skud.getTime() - wifi.getTime()) / 60_000;
-    const source: BoundarySource = diffMinutes <= toleranceMinutes ? "BOTH" : earlier === skud ? "SKUD" : "WIFI";
-    return { time: earlier, source };
+    return { time: new Date((skud.getTime() + wifi.getTime()) / 2), source: "BOTH" };
   }
   if (skud) return { time: skud, source: "SKUD" };
   if (wifi) return { time: wifi, source: "WIFI" };
   return null;
 }
 
-export function combineDay(
-  dayKey: string,
-  skudSessions: Session[],
-  networkIntervals: NetworkInterval[],
-  toleranceMinutes: number,
-): CombinedDay {
+export function combineDay(dayKey: string, skudSessions: Session[], networkIntervals: NetworkInterval[]): CombinedDay {
   const skud = skudDayBoundaries(skudSessions);
   const wifi = wifiDayBoundaries(networkIntervals);
 
-  const arrival = pickEarlier(skud.firstIn, wifi.firstIn, toleranceMinutes);
-  const departure = pickEarlier(skud.lastOut, wifi.lastOut, toleranceMinutes);
+  const arrival = pickAverage(skud.firstIn, wifi.firstIn);
+  const departure = pickAverage(skud.lastOut, wifi.lastOut);
 
   const workedMinutes =
     arrival && departure
@@ -78,15 +73,11 @@ export function combineDay(
 export function combineAllDays(
   skudByDay: Map<string, Session[]>,
   networkByDay: Map<string, NetworkInterval[]>,
-  toleranceMinutes: number,
 ): Map<string, CombinedDay> {
   const dayKeys = new Set([...skudByDay.keys(), ...networkByDay.keys()]);
   const result = new Map<string, CombinedDay>();
   for (const dayKey of dayKeys) {
-    result.set(
-      dayKey,
-      combineDay(dayKey, skudByDay.get(dayKey) ?? [], networkByDay.get(dayKey) ?? [], toleranceMinutes),
-    );
+    result.set(dayKey, combineDay(dayKey, skudByDay.get(dayKey) ?? [], networkByDay.get(dayKey) ?? []));
   }
   return result;
 }
