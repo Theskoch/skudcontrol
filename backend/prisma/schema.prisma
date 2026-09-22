@@ -58,6 +58,7 @@ model Account {
 model Employee {
   id               String    @id @default(uuid())
   fullName         String
+  patronymic       String?
   personnelNumber  String?
   serialNumber     String?
   macAddress       String?
@@ -72,6 +73,7 @@ model Employee {
   events AttendanceEvent[]
   audits AttendanceAudit[]
 
+  @@index([patronymic])
   @@map("employees")
 }
 

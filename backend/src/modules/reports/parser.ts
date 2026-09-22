@@ -4,6 +4,7 @@ import { normalizeMacAddress } from "../../lib/mac.js";
 export type ParsedDayEntry = {
   dateKey: string; // YYYY-MM-DD
   employeeName: string;
+  patronymic: string;
   macAddress: string | null;
   checkIn: string | null; // "HH:MM"
   checkOut: string | null; // "HH:MM"
@@ -14,6 +15,21 @@ const TIME_OR_DASH_RE = /^\d{2}:\d{2}$|^-$/;
 
 function cleanText(raw: string): string {
   return raw.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The client's "Сотрудник" column is a raw ФИО string where first/last name
+ * may be missing, but the last token is always an appended device/badge code
+ * ending in a digit (e.g. "Admin Андрей p129" -> "p129"). That trailing code
+ * is the only stable identifier across report exports, so it doubles as the
+ * employee-matching key. A row whose last token doesn't end in a digit has no
+ * such code and must not be imported/tracked at all.
+ */
+function extractPatronymicCode(fullName: string): string | null {
+  const tokens = fullName.split(/\s+/).filter(Boolean);
+  const last = tokens[tokens.length - 1];
+  if (!last || !/\d$/.test(last)) return null;
+  return last;
 }
 
 /**
@@ -51,9 +67,13 @@ export function parseAttendanceReport(html: string): ParsedDayEntry[] {
     if (!name || name === "Итого") return;
     if (!TIME_OR_DASH_RE.test(checkInRaw) || !TIME_OR_DASH_RE.test(checkOutRaw)) return;
 
+    const patronymic = extractPatronymicCode(name);
+    if (!patronymic) return;
+
     entries.push({
       dateKey: currentDateKey,
       employeeName: name,
+      patronymic,
       macAddress,
       checkIn: checkInRaw === "-" ? null : checkInRaw,
       checkOut: checkOutRaw === "-" ? null : checkOutRaw,

@@ -27,9 +27,9 @@ export async function importAttendanceReport(
 
   const byEmployee = new Map<string, typeof entries>();
   for (const entry of entries) {
-    const list = byEmployee.get(entry.employeeName) ?? [];
+    const list = byEmployee.get(entry.patronymic) ?? [];
     list.push(entry);
-    byEmployee.set(entry.employeeName, list);
+    byEmployee.set(entry.patronymic, list);
   }
 
   let employeesCreated = 0;
@@ -37,25 +37,28 @@ export async function importAttendanceReport(
   let macAddressesUpdated = 0;
   let eventsCreated = 0;
 
-  for (const [fullName, dayEntries] of byEmployee) {
-    let employee = await prisma.employee.findFirst({ where: { fullName } });
+  for (const [patronymic, dayEntries] of byEmployee) {
+    let employee = await prisma.employee.findFirst({ where: { patronymic } });
+    const fullName = dayEntries[0].employeeName;
     const reportMac = dayEntries.find((e) => e.macAddress)?.macAddress ?? null;
 
     if (!employee) {
       employee = await prisma.employee.create({
-        data: { fullName, macAddress: reportMac, createdById: importedById },
+        data: { fullName, patronymic, macAddress: reportMac, createdById: importedById },
       });
       employeesCreated++;
     } else {
       const needsReactivation = !employee.isActive || employee.deletionMarkedAt;
       const needsMacUpdate = reportMac !== null && reportMac !== employee.macAddress;
+      const needsNameUpdate = fullName !== employee.fullName;
 
-      if (needsReactivation || needsMacUpdate) {
+      if (needsReactivation || needsMacUpdate || needsNameUpdate) {
         employee = await prisma.employee.update({
           where: { id: employee.id },
           data: {
             ...(needsReactivation ? { isActive: true, deletionMarkedAt: null } : {}),
             ...(needsMacUpdate ? { macAddress: reportMac } : {}),
+            ...(needsNameUpdate ? { fullName } : {}),
           },
         });
         if (needsReactivation) employeesReactivated++;
@@ -94,15 +97,15 @@ export async function importAttendanceReport(
     }
   }
 
-  const reportNames = new Set(byEmployee.keys());
+  const reportCodes = new Set(byEmployee.keys());
   const activeEmployees = await prisma.employee.findMany({
     where: { isActive: true },
-    select: { id: true, fullName: true, deletionMarkedAt: true },
+    select: { id: true, patronymic: true, deletionMarkedAt: true },
   });
 
   let employeesMarkedForDeletion = 0;
   for (const employee of activeEmployees) {
-    if (reportNames.has(employee.fullName)) continue;
+    if (employee.patronymic && reportCodes.has(employee.patronymic)) continue;
     if (employee.deletionMarkedAt) continue;
     await prisma.employee.update({
       where: { id: employee.id },
