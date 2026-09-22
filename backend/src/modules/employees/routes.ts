@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { createEmployeeSchema, updateEmployeeSchema, rangeQuerySchema } from "./schema.js";
+import { updateEmployeeSchema, rangeQuerySchema } from "./schema.js";
 import { computeAverages, computeDashboard } from "../attendance/metrics.js";
 import { getThresholds } from "../settings/service.js";
 import { env } from "../../config/env.js";
@@ -33,16 +33,6 @@ export default async function employeeRoutes(app: FastifyInstance) {
       avgMinutes: averages.get(e.id)?.avgMinutes ?? 0,
       colorBand: averages.get(e.id)?.colorBand ?? "none",
     }));
-  });
-
-  app.post("/api/employees", { preHandler: app.requireRole("ADMIN") }, async (req, reply) => {
-    const parsed = createEmployeeSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-
-    const employee = await app.prisma.employee.create({
-      data: { ...parsed.data, createdById: req.user!.sub },
-    });
-    return reply.code(201).send(employee);
   });
 
   app.get("/api/employees/:id", { preHandler: app.requireAuth }, async (req, reply) => {

@@ -39,7 +39,7 @@ const ENDPOINTS: EndpointDef[] = [
       "Список всех активных сотрудников с их текущими данными и средним временем на месте за скользящее окно (по умолчанию 30 дней, настраивается администратором).",
     responseFields: [
       { name: "id", type: "string", description: "ID сотрудника — используется в остальных запросах." },
-      { name: "fullName", type: "string", description: "Имя / ник." },
+      { name: "fullName", type: "string", description: "Идентификатор сотрудника (код, не ФИО)." },
       { name: "personnelNumber", type: "string | null", description: "Табельный номер, если есть." },
       { name: "serialNumber", type: "string | null", description: "Серийный номер устройства." },
       { name: "macAddress", type: "string | null", description: "MAC-адрес устройства." },
@@ -54,7 +54,7 @@ const ENDPOINTS: EndpointDef[] = [
     example: `[
   {
     "id": "c543bc6c-...",
-    "fullName": "Иванов Иван",
+    "fullName": "p129",
     "personnelNumber": null,
     "serialNumber": null,
     "macAddress": "CE:17:D8:88:6B:41",
@@ -72,7 +72,7 @@ const ENDPOINTS: EndpointDef[] = [
     params: [RANGE_PARAM],
     responseFields: [
       { name: "employeeId", type: "string", description: "ID сотрудника." },
-      { name: "fullName", type: "string", description: "Имя / ник." },
+      { name: "fullName", type: "string", description: "Идентификатор сотрудника (код, не ФИО)." },
       { name: "skud[].date", type: "string (YYYY-MM-DD)", description: "День, к которому отнесена запись СКУД." },
       { name: "skud[].checkIn", type: "string | null (ISO)", description: "Время прихода по СКУД." },
       { name: "skud[].checkOut", type: "string | null (ISO)", description: "Время ухода по СКУД." },
@@ -94,7 +94,7 @@ const ENDPOINTS: EndpointDef[] = [
     example: `[
   {
     "employeeId": "c543bc6c-...",
-    "fullName": "Иванов Иван",
+    "fullName": "p129",
     "skud": [
       { "date": "2026-09-17", "checkIn": "2026-09-17T07:44:00.000Z", "checkOut": null, "incomplete": true }
     ],
@@ -145,7 +145,7 @@ const ENDPOINTS: EndpointDef[] = [
     ],
     responseFields: [
       { name: "employeeId", type: "string", description: "ID сотрудника." },
-      { name: "fullName", type: "string", description: "Имя / ник." },
+      { name: "fullName", type: "string", description: "Идентификатор сотрудника (код, не ФИО)." },
       { name: "skud[].date", type: "string (YYYY-MM-DD)", description: "День записи СКУД." },
       { name: "skud[].checkIn", type: "string | null (ISO)", description: "Время прихода по СКУД." },
       { name: "skud[].checkOut", type: "string | null (ISO)", description: "Время ухода по СКУД." },
@@ -161,7 +161,7 @@ const ENDPOINTS: EndpointDef[] = [
     ],
     example: `{
   "employeeId": "c543bc6c-...",
-  "fullName": "Иванов Иван",
+  "fullName": "p129",
   "skud": [
     { "date": "2026-09-16", "checkIn": "2026-09-16T07:44:00.000Z", "checkOut": "2026-09-16T15:12:00.000Z", "incomplete": false }
   ],
@@ -187,7 +187,7 @@ const ENDPOINTS: EndpointDef[] = [
     ],
     responseFields: [
       { name: "id", type: "string", description: "ID сотрудника — используется в остальных запросах." },
-      { name: "fullName", type: "string", description: "Имя / ник." },
+      { name: "fullName", type: "string", description: "Идентификатор сотрудника (код, не ФИО)." },
       { name: "personnelNumber", type: "string | null", description: "Табельный номер, если есть." },
       { name: "serialNumber", type: "string | null", description: "Серийный номер устройства." },
       {
@@ -198,7 +198,7 @@ const ENDPOINTS: EndpointDef[] = [
     ],
     example: `{
   "id": "c543bc6c-...",
-  "fullName": "Иванов Иван",
+  "fullName": "p129",
   "personnelNumber": null,
   "serialNumber": null,
   "macAddress": "CE:17:D8:88:6B:41"

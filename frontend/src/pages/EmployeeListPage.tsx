@@ -4,13 +4,11 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import type { EmployeeListItem } from "../lib/types";
 import { EmployeeTable } from "../components/employee-table/EmployeeTable";
-import { AddEmployeeModal } from "../components/employee-table/AddEmployeeModal";
 import { ImportReportModal } from "../components/employee-table/ImportReportModal";
 
 export function EmployeeListPage() {
   const { user } = useAuth();
   const [search, setSearch] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -35,20 +33,12 @@ export function EmployeeListPage() {
             className="w-56 rounded-lg border border-line-hairline bg-surface px-3 py-2 text-sm outline-none focus:border-accent-violet"
           />
           {user?.role === "ADMIN" && (
-            <>
-              <button
-                onClick={() => setShowImportModal(true)}
-                className="whitespace-nowrap rounded-lg border border-line-hairline px-3 py-2 text-sm font-medium text-ink-secondary hover:border-accent-violet hover:text-ink-primary"
-              >
-                Импорт отчёта
-              </button>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="whitespace-nowrap rounded-lg bg-accent-violet px-3 py-2 text-sm font-medium text-white hover:bg-accent-violet-strong"
-              >
-                + Сотрудник
-              </button>
-            </>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="whitespace-nowrap rounded-lg bg-accent-violet px-3 py-2 text-sm font-medium text-white hover:bg-accent-violet-strong"
+            >
+              Импорт отчёта
+            </button>
           )}
         </div>
       </div>
@@ -61,7 +51,6 @@ export function EmployeeListPage() {
         <EmployeeTable employees={data ?? []} />
       )}
 
-      {showAddModal && <AddEmployeeModal onClose={() => setShowAddModal(false)} />}
       {showImportModal && <ImportReportModal onClose={() => setShowImportModal(false)} />}
     </div>
   );
