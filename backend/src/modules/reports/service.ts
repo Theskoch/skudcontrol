@@ -39,7 +39,7 @@ export async function importAttendanceReport(
 
   for (const [patronymic, dayEntries] of byEmployee) {
     let employee = await prisma.employee.findFirst({ where: { patronymic } });
-    const fullName = dayEntries[0].employeeName;
+    const fullName = patronymic;
     const reportMac = dayEntries.find((e) => e.macAddress)?.macAddress ?? null;
 
     if (!employee) {
