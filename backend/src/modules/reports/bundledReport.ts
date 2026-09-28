@@ -40,3 +40,24 @@ export async function importBundledReport(
   const html = fs.readFileSync(reportPath, "utf-8");
   return importAttendanceReport(prisma, html, admin.id, timeZone);
 }
+
+let lastImportedMtimeMs: number | null = null;
+
+/**
+ * Only re-imports when the file's mtime has moved since the last run, so this
+ * can be polled often without re-parsing/re-hitting the DB on every tick.
+ */
+export async function importBundledReportIfChanged(
+  prisma: PrismaClient,
+  timeZone: string,
+): Promise<ImportSummary | null> {
+  const reportPath = findBundledReportPath();
+  if (!reportPath) return null;
+
+  const mtimeMs = fs.statSync(reportPath).mtimeMs;
+  if (mtimeMs === lastImportedMtimeMs) return null;
+
+  const summary = await importBundledReport(prisma, timeZone);
+  lastImportedMtimeMs = mtimeMs;
+  return summary;
+}

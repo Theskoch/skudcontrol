@@ -51,30 +51,3 @@ export function zonedDateTimeToUtc(
   const offset = offsetMinutesAt(naiveUtc, timeZone);
   return new Date(naiveUtc.getTime() - offset * 60_000);
 }
-
-/**
- * The next :30-past-the-hour wall-clock instant in `timeZone` (e.g. 00:30, 01:30, ...),
- * so a hint interval lands on a predictable half-hour mark instead of the top of the hour.
- */
-export function msUntilNextHalfHour(timeZone: string, now: Date = new Date()): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
-  const year = get("year");
-  const month = get("month");
-  const day = get("day");
-  const hour = get("hour") % 24; // some Intl implementations report midnight as "24" with hour12:false
-  const minute = get("minute");
-
-  // Date.UTC naturally rolls hour=24 into the next day, so no manual carry needed.
-  const targetHour = minute < 30 ? hour : hour + 1;
-  const next = zonedDateTimeToUtc(year, month, day, targetHour, 30, timeZone);
-  return next.getTime() - now.getTime();
-}

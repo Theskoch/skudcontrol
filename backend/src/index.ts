@@ -16,9 +16,8 @@ import networkRoutes from "./modules/network/routes.js";
 import apiKeysRoutes from "./modules/apiKeys/routes.js";
 import publicApiRoutes from "./modules/publicApi/routes.js";
 import { runDeletionSweep } from "./modules/employees/expiry.js";
-import { importBundledReport } from "./modules/reports/bundledReport.js";
+import { importBundledReportIfChanged } from "./modules/reports/bundledReport.js";
 import { runUnifiPoll } from "./modules/network/poller.js";
-import { msUntilNextHalfHour } from "./lib/timezone.js";
 
 const app = Fastify({ logger: true, trustProxy: true });
 
@@ -42,7 +41,7 @@ await app.register(publicApiRoutes);
 app.get("/api/health", async () => ({ ok: true }));
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
+const REPORT_POLL_MS = 60 * 1000;
 const UNIFI_POLL_MS = 5 * 60 * 1000;
 
 app.ready().then(() => {
@@ -52,17 +51,15 @@ app.ready().then(() => {
   }, DAY_MS).unref();
 
   // The client's ACS export refreshes Report.html in place on its own schedule.
-  // Rechecked every hour, but deliberately offset to :30 past the hour rather
-  // than the top of the hour.
+  // Polled every minute for a changed mtime; importBundledReportIfChanged
+  // skips the actual (re-)import when the file hasn't moved since last time.
   const runReportImport = () => {
-    importBundledReport(app.prisma, env.appTz)
-      .then((summary) => summary && app.log.info({ summary }, "hourly report import"))
-      .catch((err) => app.log.error(err, "hourly report import failed"));
+    importBundledReportIfChanged(app.prisma, env.appTz)
+      .then((summary) => summary && app.log.info({ summary }, "report import"))
+      .catch((err) => app.log.error(err, "report import failed"));
   };
-  setTimeout(() => {
-    runReportImport();
-    setInterval(runReportImport, HOUR_MS).unref();
-  }, msUntilNextHalfHour(env.appTz)).unref();
+  runReportImport();
+  setInterval(runReportImport, REPORT_POLL_MS).unref();
 
   // Read-only: polls the UniFi Integration API (GET only) for currently
   // connected Wi-Fi clients matching a known employee MAC.
