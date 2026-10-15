@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { updateEmployeeSchema, rangeQuerySchema } from "./schema.js";
 import { computeAverages, computeDashboard } from "../attendance/metrics.js";
+import { computeTraffic, BUCKET_MINUTES } from "../network/traffic.js";
 import { getThresholds } from "../settings/service.js";
 import { env } from "../../config/env.js";
 
@@ -76,5 +77,18 @@ export default async function employeeRoutes(app: FastifyInstance) {
     );
 
     return { employee, thresholds, ...dashboard };
+  });
+
+  app.get("/api/employees/:id/traffic", { preHandler: app.requireAuth }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsedQuery = rangeQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) return reply.code(400).send({ error: "Некорректный диапазон" });
+
+    const employee = await app.prisma.employee.findUnique({ where: { id } });
+    if (!employee || !employee.isActive) return reply.code(404).send({ error: "Сотрудник не найден" });
+    if (!employee.macAddress) return { hasMac: false, bucketMinutes: BUCKET_MINUTES, days: [] };
+
+    const days = await computeTraffic(app.prisma, employee.macAddress, parsedQuery.data.range, env.appTz, new Date());
+    return { hasMac: true, bucketMinutes: BUCKET_MINUTES, days };
   });
 }

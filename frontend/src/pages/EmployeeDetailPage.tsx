@@ -4,11 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { colorBandFor } from "../lib/colorBand";
-import type { EmployeeDashboard, RangeKey } from "../lib/types";
+import type { EmployeeDashboard, EmployeeTraffic, RangeKey } from "../lib/types";
 import { HeroScore } from "../components/employee-dashboard/HeroScore";
 import { EmployeeInfoCard, PeriodMetricsCard } from "../components/employee-dashboard/MetricsPanel";
 import { RangeTabs } from "../components/employee-dashboard/RangeTabs";
 import { ArcTimelineChart } from "../components/timeline-chart/ArcTimelineChart";
+import { TrafficChart } from "../components/timeline-chart/TrafficChart";
 import { EditAttendanceModal } from "../components/employee-dashboard/EditAttendanceModal";
 import { AttendanceLog } from "../components/employee-dashboard/AttendanceLog";
 
@@ -22,6 +23,14 @@ export function EmployeeDetailPage() {
     queryKey: ["dashboard", id, range],
     queryFn: () => api.get<EmployeeDashboard>(`/employees/${id}/dashboard?range=${range}`),
     enabled: Boolean(id),
+  });
+
+  // Traffic is only collected for employees with a MAC; the chart appears as soon as one is set.
+  const { data: traffic } = useQuery({
+    queryKey: ["traffic", id, range],
+    queryFn: () => api.get<EmployeeTraffic>(`/employees/${id}/traffic?range=${range}`),
+    enabled: Boolean(id),
+    refetchInterval: range === "today" ? 60_000 : false,
   });
 
   if (isLoading || !data) {
@@ -60,6 +69,7 @@ export function EmployeeDetailPage() {
             combinedTimeline={data.combinedTimeline}
             thresholds={data.thresholds}
           />
+          {traffic && <TrafficChart traffic={traffic} />}
           <AttendanceLog timeline={data.timeline} networkTimeline={data.networkTimeline} />
         </div>
       </div>

@@ -18,6 +18,7 @@ import publicApiRoutes from "./modules/publicApi/routes.js";
 import { runDeletionSweep } from "./modules/employees/expiry.js";
 import { importBundledReportIfChanged } from "./modules/reports/bundledReport.js";
 import { runUnifiPoll } from "./modules/network/poller.js";
+import { runTrafficPoll, purgeOldTrafficSamples } from "./modules/network/trafficPoller.js";
 
 const app = Fastify({ logger: true, trustProxy: true });
 
@@ -43,6 +44,7 @@ app.get("/api/health", async () => ({ ok: true }));
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REPORT_POLL_MS = 60 * 1000;
 const UNIFI_POLL_MS = 5 * 60 * 1000;
+const TRAFFIC_POLL_MS = 60 * 1000;
 
 app.ready().then(() => {
   runDeletionSweep(app.prisma).catch((err) => app.log.error(err));
@@ -71,6 +73,16 @@ app.ready().then(() => {
       .then((summary) => app.log.info({ summary }, "unifi poll"))
       .catch((err) => app.log.error(err, "unifi poll failed"));
   }, UNIFI_POLL_MS).unref();
+
+  // Read-only (stat/sta GET): per-minute cumulative byte counters for the traffic chart.
+  const pollTraffic = () =>
+    runTrafficPoll(app.prisma).catch((err) => app.log.error(err, "traffic poll failed"));
+  pollTraffic();
+  setInterval(pollTraffic, TRAFFIC_POLL_MS).unref();
+  purgeOldTrafficSamples(app.prisma).catch((err) => app.log.error(err));
+  setInterval(() => {
+    purgeOldTrafficSamples(app.prisma).catch((err) => app.log.error(err));
+  }, DAY_MS).unref();
 });
 
 app.listen({ host: "0.0.0.0", port: env.port }).catch((err) => {

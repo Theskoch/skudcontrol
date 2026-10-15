@@ -135,3 +135,7 @@ export type EmployeeDashboard = {
   networkTimeline: NetworkTimelineDay[];
   combinedTimeline: CombinedTimelineDay[];
 };
+
+export type TrafficBucket = { startMin: number; rxBytes: number; txBytes: number };
+export type TrafficDay = { dayKey: string; buckets: TrafficBucket[] };
+export type EmployeeTraffic = { hasMac: boolean; bucketMinutes: number; days: TrafficDay[] };

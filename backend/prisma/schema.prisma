@@ -151,3 +151,16 @@ model NetworkSession {
   @@index([macAddress, startedAt])
   @@map("network_sessions")
 }
+
+/// Cumulative per-client Wi-Fi byte counters, one row per poll while the device is connected.
+/// Traffic for an interval is the difference of neighbouring samples (computed on read).
+model NetworkTrafficSample {
+  id         String   @id @default(uuid())
+  macAddress String   @map("mac_address")
+  sampledAt  DateTime @map("sampled_at")
+  rxBytes    BigInt   @map("rx_bytes")
+  txBytes    BigInt   @map("tx_bytes")
+
+  @@index([macAddress, sampledAt])
+  @@map("network_traffic_samples")
+}

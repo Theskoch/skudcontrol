@@ -39,3 +39,27 @@ export async function fetchAllWifiClients(): Promise<UnifiClient[]> {
 
   return all.filter((c) => c.type === "WIRELESS");
 }
+
+export type UnifiTrafficCounter = { macAddress: string; rxBytes: number; txBytes: number };
+
+/**
+ * Read-only: the Integration API's client list has no byte counters, so these
+ * come from the controller's classic `stat/sta` endpoint (same proxy, same
+ * key, GET only). Counters are cumulative since the client last associated.
+ */
+export async function fetchWifiTrafficCounters(): Promise<UnifiTrafficCounter[]> {
+  if (!isConfigured()) return [];
+
+  const url = `${env.unifiApiBaseUrl}/v1/connector/consoles/${env.unifiConsoleId}/proxy/network/api/s/default/stat/sta`;
+  const res = await fetch(url, { headers: { "X-API-Key": env.unifiApiKey!, Accept: "application/json" } });
+  if (!res.ok) {
+    throw new Error(`UniFi stat/sta error ${res.status}: ${await res.text()}`);
+  }
+  const body = (await res.json()) as {
+    data?: { mac?: string; is_wired?: boolean; rx_bytes?: number; tx_bytes?: number }[];
+  };
+
+  return (body.data ?? [])
+    .filter((c) => !c.is_wired && c.mac && c.rx_bytes != null && c.tx_bytes != null)
+    .map((c) => ({ macAddress: c.mac!, rxBytes: c.rx_bytes!, txBytes: c.tx_bytes! }));
+}
