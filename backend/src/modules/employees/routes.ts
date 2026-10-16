@@ -86,9 +86,9 @@ export default async function employeeRoutes(app: FastifyInstance) {
 
     const employee = await app.prisma.employee.findUnique({ where: { id } });
     if (!employee || !employee.isActive) return reply.code(404).send({ error: "Сотрудник не найден" });
-    if (!employee.macAddress) return { hasMac: false, bucketMinutes: BUCKET_MINUTES, days: [] };
+    if (!employee.macAddress) return { hasMac: false, bucketMinutes: BUCKET_MINUTES, days: [], states: [], events: [] };
 
-    const days = await computeTraffic(app.prisma, employee.macAddress, parsedQuery.data.range, env.appTz, new Date());
-    return { hasMac: true, bucketMinutes: BUCKET_MINUTES, days };
+    const traffic = await computeTraffic(app.prisma, employee.macAddress, parsedQuery.data.range, env.appTz, new Date());
+    return { hasMac: true, bucketMinutes: BUCKET_MINUTES, ...traffic };
   });
 }

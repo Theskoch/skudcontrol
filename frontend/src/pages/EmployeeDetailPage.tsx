@@ -67,6 +67,7 @@ export function EmployeeDetailPage() {
             timeline={data.timeline}
             networkTimeline={data.networkTimeline}
             combinedTimeline={data.combinedTimeline}
+            trafficEvents={traffic?.events ?? []}
             thresholds={data.thresholds}
           />
           {traffic && <TrafficChart traffic={traffic} />}

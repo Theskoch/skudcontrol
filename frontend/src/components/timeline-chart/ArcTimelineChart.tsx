@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { CombinedTimelineDay, NetworkInterval, NetworkTimelineDay, Thresholds, TimelineDay } from "../../lib/types";
-import { formatDayKey, formatTime, minutesSinceMidnight, todayDayKey } from "../../lib/time";
-import { SKUD_HEX, WIFI_HEX } from "./seriesColors";
+import type { CombinedTimelineDay, NetworkInterval, NetworkTimelineDay, Thresholds, TimelineDay, TrafficEvent } from "../../lib/types";
+import { dayKeyOfIso, formatDayKey, formatTime, minutesSinceMidnight, todayDayKey } from "../../lib/time";
+import { SKUD_HEX, TRAFFIC_HEX, WIFI_HEX } from "./seriesColors";
 
 const MINUTES_IN_DAY = 24 * 60;
 const HOUR_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
@@ -31,14 +31,16 @@ export function ArcTimelineChart({
   timeline,
   networkTimeline,
   combinedTimeline,
+  trafficEvents = [],
   thresholds,
 }: {
+  trafficEvents?: TrafficEvent[];
   timeline: TimelineDay[];
   networkTimeline: NetworkTimelineDay[];
   combinedTimeline: CombinedTimelineDay[];
   thresholds: Thresholds;
 }) {
-  if (timeline.length === 0 && networkTimeline.length === 0) {
+  if (timeline.length === 0 && networkTimeline.length === 0 && trafficEvents.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-xl border border-line-hairline bg-surface text-ink-muted">
         Нет данных за выбранный период
@@ -48,7 +50,14 @@ export function ArcTimelineChart({
 
   const networkByDay = new Map(networkTimeline.map((d) => [d.dayKey, d.intervals]));
   const combinedByDay = new Map(combinedTimeline.map((d) => [d.dayKey, d]));
-  const dayKeys = [...new Set([...timeline.map((d) => d.dayKey), ...networkTimeline.map((d) => d.dayKey)])].sort();
+  const eventsByDay = new Map<string, TrafficEvent[]>();
+  for (const e of trafficEvents) {
+    const k = dayKeyOfIso(e.at);
+    eventsByDay.set(k, [...(eventsByDay.get(k) ?? []), e]);
+  }
+  const dayKeys = [
+    ...new Set([...timeline.map((d) => d.dayKey), ...networkTimeline.map((d) => d.dayKey), ...eventsByDay.keys()]),
+  ].sort();
   const rowHeight = dayKeys.length === 1 ? "h-28" : "h-16";
 
   return (
@@ -62,6 +71,7 @@ export function ArcTimelineChart({
             sessions={timeline.find((d) => d.dayKey === dayKey)?.sessions ?? []}
             networkIntervals={networkByDay.get(dayKey) ?? []}
             combined={combinedByDay.get(dayKey)}
+            trafficEvents={eventsByDay.get(dayKey) ?? []}
             thresholds={thresholds}
             rowHeightClass={rowHeight}
           />
@@ -146,9 +156,11 @@ function DayRow({
   sessions,
   networkIntervals,
   combined,
+  trafficEvents,
   thresholds,
   rowHeightClass,
 }: {
+  trafficEvents: TrafficEvent[];
   dayKey: string;
   sessions: TimelineDay["sessions"];
   networkIntervals: NetworkInterval[];
@@ -412,6 +424,28 @@ function DayRow({
           </span>
         ))}
 
+        {trafficEvents.map((e, idx) => {
+          const min = minutesSinceMidnight(e.at);
+          const label = `Трафик: ${e.type === "ARRIVAL" ? "пришёл" : "ушёл"} · ${formatTime(e.at)}`;
+          return (
+            <span
+              key={`traffic-${idx}`}
+              className="absolute ring-2 ring-surface-raised"
+              style={{
+                left: pct(min),
+                top: `${BASE_Y + 9}%`,
+                width: "9px",
+                height: "9px",
+                transform: "translate(-50%, -50%) rotate(45deg)",
+                backgroundColor: TRAFFIC_HEX,
+                cursor: "pointer",
+              }}
+              onMouseEnter={() => setHover({ xPct: pctNum(min), label })}
+              onMouseLeave={() => setHover(null)}
+            />
+          );
+        })}
+
         {hover && (
           <div
             className="pointer-events-none absolute bottom-full z-10 mb-2 -translate-x-1/2 whitespace-nowrap rounded-md border border-line-hairline bg-surface-raised px-2 py-1 text-xs text-ink-primary shadow-lg"
@@ -493,6 +527,10 @@ function Legend() {
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: WIFI_HEX }} />
         Wi-Fi
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2 w-2 rotate-45" style={{ backgroundColor: TRAFFIC_HEX }} />
+        трафик: пришёл/ушёл
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-2 w-4 rounded-full border border-dashed border-ink-muted" />

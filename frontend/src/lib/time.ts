@@ -47,3 +47,9 @@ export function deletionDeadline(markedAtIso: string): string {
   const deadline = new Date(new Date(markedAtIso).getTime() + DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
   return formatDate(deadline.toISOString());
 }
+
+export function dayKeyOfIso(iso: string, timeZone: string = APP_TZ): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+    new Date(iso),
+  );
+}

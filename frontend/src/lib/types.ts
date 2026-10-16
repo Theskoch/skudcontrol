@@ -138,4 +138,13 @@ export type EmployeeDashboard = {
 
 export type TrafficBucket = { startMin: number; rxBytes: number; txBytes: number };
 export type TrafficDay = { dayKey: string; buckets: TrafficBucket[] };
-export type EmployeeTraffic = { hasMac: boolean; bucketMinutes: number; days: TrafficDay[] };
+export type TrafficStateSegment = { startMin: number; endMin: number; state: "ACTIVE" | "IDLE" };
+export type TrafficStateDay = { dayKey: string; segments: TrafficStateSegment[] };
+export type TrafficEvent = { type: "ARRIVAL" | "DEPARTURE"; at: string };
+export type EmployeeTraffic = {
+  hasMac: boolean;
+  bucketMinutes: number;
+  days: TrafficDay[];
+  states: TrafficStateDay[];
+  events: TrafficEvent[];
+};

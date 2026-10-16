@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
-import { zonedDayKey } from "../../lib/timezone.js";
+import { addDays, zonedDayKey } from "../../lib/timezone.js";
+import { analyzeActivity, type ActivityState } from "./activity.js";
 import { resolveRange, type RangeKey } from "../attendance/metrics.js";
 
 export const BUCKET_MINUTES = 15;
@@ -46,24 +47,51 @@ export function bucketTraffic(samples: Sample[], timeZone: string): TrafficDay[]
     .map(([dayKey, buckets]) => ({ dayKey, buckets: [...buckets.values()].sort((a, b) => a.startMin - b.startMin) }));
 }
 
+export type TrafficStateSegment = { startMin: number; endMin: number; state: ActivityState };
+export type TrafficStateDay = { dayKey: string; segments: TrafficStateSegment[] };
+export type TrafficEvent = { type: "ARRIVAL" | "DEPARTURE"; at: string };
+export type TrafficResult = { days: TrafficDay[]; states: TrafficStateDay[]; events: TrafficEvent[] };
+
+// Arrival/departure needs the previous activity; a weekend or holiday can sit between it and the range start.
+const ACTIVITY_LOOKBACK_DAYS = 4;
+
 export async function computeTraffic(
   prisma: PrismaClient,
   macAddress: string,
   range: RangeKey,
   timeZone: string,
   now: Date,
-): Promise<TrafficDay[]> {
+): Promise<TrafficResult> {
   const resolved = resolveRange(range, timeZone, now);
-  // One sample before the range start gives the first in-range sample something to diff against.
-  const before = resolved.start
-    ? await prisma.networkTrafficSample.findFirst({
-        where: { macAddress, sampledAt: { lt: resolved.start } },
-        orderBy: { sampledAt: "desc" },
-      })
-    : null;
-  const inRange = await prisma.networkTrafficSample.findMany({
-    where: { macAddress, sampledAt: { ...(resolved.start ? { gte: resolved.start } : {}), lt: resolved.end } },
+  const lookbackStart = resolved.start ? addDays(resolved.start, -ACTIVITY_LOOKBACK_DAYS) : undefined;
+  const all = await prisma.networkTrafficSample.findMany({
+    where: { macAddress, sampledAt: { ...(lookbackStart ? { gte: lookbackStart } : {}), lt: resolved.end } },
     orderBy: { sampledAt: "asc" },
   });
-  return bucketTraffic(before ? [before, ...inRange] : inRange, timeZone);
+
+  const startKey = resolved.start ? zonedDayKey(resolved.start, timeZone) : null;
+  const inRangeDay = (d: Date) => !startKey || zonedDayKey(d, timeZone) >= startKey;
+
+  // One sample before the range start gives the first in-range sample something to diff against.
+  const firstInRange = all.findIndex((x) => !resolved.start || x.sampledAt >= resolved.start);
+  const forBuckets = firstInRange === -1 ? [] : all.slice(Math.max(0, firstInRange - 1));
+
+  const activity = analyzeActivity(all, now);
+  const statesByDay = new Map<string, TrafficStateSegment[]>();
+  for (const seg of activity.segments) {
+    if (!inRangeDay(seg.endedAt)) continue;
+    const dayKey = zonedDayKey(seg.endedAt, timeZone);
+    const startMin = zonedDayKey(seg.startedAt, timeZone) === dayKey ? minutesOfDay(seg.startedAt, timeZone) : 0;
+    const endMin = minutesOfDay(seg.endedAt, timeZone);
+    if (endMin <= startMin) continue;
+    const list = statesByDay.get(dayKey) ?? [];
+    list.push({ startMin, endMin, state: seg.state });
+    statesByDay.set(dayKey, list);
+  }
+
+  return {
+    days: bucketTraffic(forBuckets, timeZone),
+    states: [...statesByDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([dayKey, segments]) => ({ dayKey, segments })),
+    events: activity.events.filter((e) => inRangeDay(e.at)).map((e) => ({ type: e.type, at: e.at.toISOString() })),
+  };
 }

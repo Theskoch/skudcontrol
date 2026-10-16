@@ -1,11 +1,13 @@
 import { useState } from "react";
-import type { EmployeeTraffic, TrafficBucket } from "../../lib/types";
+import type { EmployeeTraffic, TrafficBucket, TrafficStateSegment } from "../../lib/types";
 import { formatDayKey } from "../../lib/time";
 
 const MINUTES_IN_DAY = 24 * 60;
 const HOUR_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 const VB_H = 100;
-const BASE_Y = 92;
+const BASE_Y = 82;
+const STRIP_Y = 88; // state strip under the baseline
+const STRIP_H = 8;
 const TOP_Y = 8;
 
 // Quiet traffic fades into the background (dim hue, high transparency); heavy
@@ -73,6 +75,7 @@ export function TrafficChart({ traffic }: { traffic: EmployeeTraffic }) {
                 key={day.dayKey}
                 dayKey={day.dayKey}
                 buckets={day.buckets}
+                segments={traffic.states.find((d) => d.dayKey === day.dayKey)?.segments ?? []}
                 bucketMinutes={traffic.bucketMinutes}
                 maxBytes={maxBytes}
                 heightClass={traffic.days.length === 1 ? "h-28" : "h-16"}
@@ -89,12 +92,14 @@ export function TrafficChart({ traffic }: { traffic: EmployeeTraffic }) {
 function TrafficRow({
   dayKey,
   buckets,
+  segments,
   bucketMinutes,
   maxBytes,
   heightClass,
 }: {
   dayKey: string;
   buckets: TrafficBucket[];
+  segments: TrafficStateSegment[];
   bucketMinutes: number;
   maxBytes: number;
   heightClass: string;
@@ -134,6 +139,18 @@ function TrafficRow({
             strokeWidth={1}
             vectorEffect="non-scaling-stroke"
           />
+          {segments.map((seg, i) => (
+            <rect
+              key={`state-${i}`}
+              x={seg.startMin}
+              y={STRIP_Y}
+              width={seg.endMin - seg.startMin}
+              height={STRIP_H}
+              fill={seg.state === "ACTIVE" ? `rgb(${HIGH_RGB.join(",")})` : "#898781"}
+              opacity={seg.state === "ACTIVE" ? 0.9 : 0.35}
+              pointerEvents="none"
+            />
+          ))}
           {points.map(({ b, l, y }) => {
             const c = colorAt(l);
             return (
@@ -229,6 +246,14 @@ function Legend({ maxBytes }: { maxBytes: number }) {
         }}
       />
       <span>больше (пик за 15 мин: {formatBytes(maxBytes)})</span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: `rgb(${HIGH_RGB.join(",")})`, opacity: 0.9 }} />
+        работает
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="h-2 w-4 rounded-sm" style={{ backgroundColor: "#898781", opacity: 0.45 }} />
+        простой / сон
+      </span>
       <span className="ml-auto">↓ входящий · ↑ исходящий</span>
     </div>
   );
