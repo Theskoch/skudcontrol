@@ -43,6 +43,8 @@ model Account {
   displayName  String
   isBlocked    Boolean   @default(false) @map("is_blocked")
   isPrimary    Boolean   @default(false) @map("is_primary")
+  /// false = a USER sees only the employees listed in AccountEmployeeAccess (new employees are NOT added automatically).
+  seesAll      Boolean   @default(true) @map("sees_all")
   deletedAt    DateTime? @map("deleted_at")
   createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
@@ -51,6 +53,8 @@ model Account {
   createdEvents    AttendanceEvent[]  @relation("EventCreatedBy")
   auditEntries     AttendanceAudit[]  @relation("AuditEditedBy")
   createdApiKeys   ApiKey[]
+  reportTemplates  ReportTemplate[]
+  employeeAccess   AccountEmployeeAccess[]
 
   @@map("accounts")
 }
@@ -72,6 +76,7 @@ model Employee {
 
   events AttendanceEvent[]
   audits AttendanceAudit[]
+  accessGrants AccountEmployeeAccess[]
 
   @@index([patronymic])
   @@map("employees")
@@ -163,4 +168,36 @@ model NetworkTrafficSample {
 
   @@index([macAddress, sampledAt])
   @@map("network_traffic_samples")
+}
+
+/// Saved report layout: which fields, which employees and which period to export.
+/// Employee ids are plain strings (no FK): an employee removed later is simply skipped on generation.
+model ReportTemplate {
+  id           String   @id @default(uuid())
+  name         String
+  fields       String[]
+  allEmployees Boolean  @default(false) @map("all_employees")
+  employeeIds  String[] @map("employee_ids")
+  /// today | yesterday | week | month | all | date
+  periodType   String   @map("period_type")
+  /// YYYY-MM-DD, only when periodType = date
+  periodDate   String?  @map("period_date")
+  createdById  String?  @map("created_by")
+  createdBy    Account? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("report_templates")
+}
+
+/// Allow-list of employees a restricted (seesAll = false) account may view.
+model AccountEmployeeAccess {
+  accountId  String   @map("account_id")
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, employeeId])
+  @@index([employeeId])
+  @@map("account_employee_access")
 }

@@ -200,7 +200,17 @@ export async function computeDashboard(
   thresholds: Thresholds,
   now: Date,
 ): Promise<DashboardData> {
-  const resolvedRange = resolveRange(range, timeZone, now);
+  return computeDashboardForRange(prisma, employeeId, resolveRange(range, timeZone, now), timeZone, thresholds);
+}
+
+/** Same as computeDashboard, but for an explicit range (used by report templates for an exact date). */
+export async function computeDashboardForRange(
+  prisma: PrismaClient,
+  employeeId: string,
+  resolvedRange: ResolvedRange,
+  timeZone: string,
+  thresholds: Thresholds,
+): Promise<DashboardData> {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: { id: true, macAddress: true },
@@ -290,7 +300,7 @@ export async function computeDashboard(
   };
 }
 
-function minutesSinceMidnight(date: Date, timeZone: string): number {
+export function minutesSinceMidnight(date: Date, timeZone: string): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone,
     hour: "2-digit",

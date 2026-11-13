@@ -6,6 +6,8 @@ import { EmployeeDetailPage } from "../pages/EmployeeDetailPage";
 import { AccountsPage } from "../pages/AccountsPage";
 import { ApiPage } from "../pages/ApiPage";
 import { ApiDocsPage } from "../pages/ApiDocsPage";
+import { ReportTemplatesPage } from "../pages/ReportTemplatesPage";
+import { ReportTemplateEditorPage } from "../pages/ReportTemplateEditorPage";
 import { AppLayout } from "./AppLayout";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -74,6 +76,36 @@ export function App() {
           <ProtectedRoute>
             <AppLayout>
               <ApiDocsPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ReportTemplatesPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports/new"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ReportTemplateEditorPage />
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports/:id"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <ReportTemplateEditorPage />
             </AppLayout>
           </ProtectedRoute>
         }

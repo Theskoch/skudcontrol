@@ -5,11 +5,13 @@ import { useAuth } from "../../lib/auth";
 import { api, ApiError } from "../../lib/api";
 import { formatDate } from "../../lib/time";
 import { ResetPasswordModal } from "./ResetPasswordModal";
+import { EmployeeAccessModal } from "./EmployeeAccessModal";
 
 export function AccountsTable({ accounts }: { accounts: Account[] }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [resetTarget, setResetTarget] = useState<Account | null>(null);
+  const [accessTarget, setAccessTarget] = useState<Account | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -104,6 +106,25 @@ export function AccountsTable({ accounts }: { accounts: Account[] }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-3">
+                      {account.role === "USER" && (
+                        <button
+                          onClick={() => setAccessTarget(account)}
+                          title={
+                            account.seesAll
+                              ? "Область просмотра: видит всех сотрудников"
+                              : "Область просмотра: ограничена"
+                          }
+                          aria-label="Область просмотра"
+                          className={`rounded-md p-1 transition hover:bg-surface-raised ${
+                            account.seesAll ? "text-ink-muted hover:text-ink-primary" : "text-accent-violet"
+                          }`}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={() => setResetTarget(account)}
                         className="text-xs text-accent-violet hover:underline"
@@ -149,6 +170,7 @@ export function AccountsTable({ accounts }: { accounts: Account[] }) {
       </div>
 
       {resetTarget && <ResetPasswordModal account={resetTarget} onClose={() => setResetTarget(null)} />}
+      {accessTarget && <EmployeeAccessModal account={accessTarget} onClose={() => setAccessTarget(null)} />}
     </div>
   );
 }

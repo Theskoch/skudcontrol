@@ -4,13 +4,16 @@ import { computeAverages, computeDashboard } from "../attendance/metrics.js";
 import { computeTraffic, BUCKET_MINUTES } from "../network/traffic.js";
 import { getThresholds } from "../settings/service.js";
 import { env } from "../../config/env.js";
+import { getEmployeeScope, isEmployeeVisible } from "./scope.js";
 
 export default async function employeeRoutes(app: FastifyInstance) {
   app.get("/api/employees", { preHandler: app.requireAuth }, async (req) => {
     const search = (req.query as { search?: string }).search?.trim().toLowerCase();
+    const scope = await getEmployeeScope(app.prisma, req.user!);
     const employees = await app.prisma.employee.findMany({
       where: {
         isActive: true,
+        ...(scope ? { id: { in: scope } } : {}),
         ...(search ? { fullName: { contains: search, mode: "insensitive" } } : {}),
       },
       orderBy: { fullName: "asc" },
@@ -40,6 +43,9 @@ export default async function employeeRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const employee = await app.prisma.employee.findUnique({ where: { id } });
     if (!employee || !employee.isActive) return reply.code(404).send({ error: "Сотрудник не найден" });
+    if (!isEmployeeVisible(await getEmployeeScope(app.prisma, req.user!), id)) {
+      return reply.code(404).send({ error: "Сотрудник не найден" });
+    }
     return employee;
   });
 
@@ -65,6 +71,9 @@ export default async function employeeRoutes(app: FastifyInstance) {
 
     const employee = await app.prisma.employee.findUnique({ where: { id } });
     if (!employee || !employee.isActive) return reply.code(404).send({ error: "Сотрудник не найден" });
+    if (!isEmployeeVisible(await getEmployeeScope(app.prisma, req.user!), id)) {
+      return reply.code(404).send({ error: "Сотрудник не найден" });
+    }
 
     const thresholds = await getThresholds(app.prisma);
     const dashboard = await computeDashboard(
@@ -86,6 +95,9 @@ export default async function employeeRoutes(app: FastifyInstance) {
 
     const employee = await app.prisma.employee.findUnique({ where: { id } });
     if (!employee || !employee.isActive) return reply.code(404).send({ error: "Сотрудник не найден" });
+    if (!isEmployeeVisible(await getEmployeeScope(app.prisma, req.user!), id)) {
+      return reply.code(404).send({ error: "Сотрудник не найден" });
+    }
     if (!employee.macAddress) return { hasMac: false, bucketMinutes: BUCKET_MINUTES, days: [], states: [], events: [] };
 
     const traffic = await computeTraffic(app.prisma, employee.macAddress, parsedQuery.data.range, env.appTz, new Date());

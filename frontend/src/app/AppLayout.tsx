@@ -30,6 +30,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     Управление правами
                   </Link>
                   <Link
+                    to="/reports"
+                    className="rounded-md border border-line-hairline px-3 py-1.5 text-ink-secondary transition hover:border-accent-violet hover:text-ink-primary"
+                  >
+                    Отчёт
+                  </Link>
+                  <Link
                     to="/api-settings"
                     className="rounded-md border border-line-hairline px-3 py-1.5 text-ink-secondary transition hover:border-accent-violet hover:text-ink-primary"
                   >

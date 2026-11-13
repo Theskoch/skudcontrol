@@ -15,6 +15,7 @@ import accountsRoutes from "./modules/accounts/routes.js";
 import networkRoutes from "./modules/network/routes.js";
 import apiKeysRoutes from "./modules/apiKeys/routes.js";
 import publicApiRoutes from "./modules/publicApi/routes.js";
+import reportTemplatesRoutes from "./modules/reportTemplates/routes.js";
 import { runDeletionSweep } from "./modules/employees/expiry.js";
 import { importBundledReportIfChanged } from "./modules/reports/bundledReport.js";
 import { runUnifiPoll } from "./modules/network/poller.js";
@@ -38,6 +39,7 @@ await app.register(accountsRoutes);
 await app.register(networkRoutes);
 await app.register(apiKeysRoutes);
 await app.register(publicApiRoutes);
+await app.register(reportTemplatesRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

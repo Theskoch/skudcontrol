@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { createAccountSchema, resetPasswordSchema, changeRoleSchema } from "./schema.js";
+import { z } from "zod";
 import { hashPassword } from "../../lib/password.js";
+
+const employeeAccessSchema = z.object({
+  seesAll: z.boolean(),
+  employeeIds: z.array(z.string()).max(10000),
+});
 
 export default async function accountsRoutes(app: FastifyInstance) {
   app.get("/api/accounts", { preHandler: app.requireRole("ADMIN") }, async () => {
@@ -14,6 +20,7 @@ export default async function accountsRoutes(app: FastifyInstance) {
         role: true,
         isBlocked: true,
         isPrimary: true,
+        seesAll: true,
         lastLoginAt: true,
         createdAt: true,
       },
@@ -130,5 +137,47 @@ export default async function accountsRoutes(app: FastifyInstance) {
 
     await app.prisma.account.update({ where: { id }, data: { deletedAt: new Date(), isBlocked: true } });
     return reply.code(204).send();
+  });
+
+  // Visibility scope of a USER account: "sees all" or an explicit allow-list of employees.
+  app.get("/api/accounts/:id/employee-access", { preHandler: app.requireRole("ADMIN") }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const account = await app.prisma.account.findUnique({
+      where: { id },
+      select: { deletedAt: true, seesAll: true, employeeAccess: { select: { employeeId: true } } },
+    });
+    if (!account || account.deletedAt) return reply.code(404).send({ error: "Учётная запись не найдена" });
+    return { seesAll: account.seesAll, employeeIds: account.employeeAccess.map((a) => a.employeeId) };
+  });
+
+  app.put("/api/accounts/:id/employee-access", { preHandler: app.requireRole("ADMIN") }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = employeeAccessSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "Некорректные данные" });
+
+    const account = await app.prisma.account.findUnique({ where: { id } });
+    if (!account || account.deletedAt) return reply.code(404).send({ error: "Учётная запись не найдена" });
+    if (account.role === "ADMIN") {
+      return reply.code(400).send({ error: "Администраторы всегда видят всех сотрудников" });
+    }
+
+    // Only keep ids that really exist; "sees all" stores no list at all.
+    const ids = parsed.data.seesAll
+      ? []
+      : (
+          await app.prisma.employee.findMany({
+            where: { id: { in: parsed.data.employeeIds } },
+            select: { id: true },
+          })
+        ).map((e) => e.id);
+
+    await app.prisma.$transaction([
+      app.prisma.account.update({ where: { id }, data: { seesAll: parsed.data.seesAll } }),
+      app.prisma.accountEmployeeAccess.deleteMany({ where: { accountId: id } }),
+      app.prisma.accountEmployeeAccess.createMany({
+        data: ids.map((employeeId) => ({ accountId: id, employeeId })),
+      }),
+    ]);
+    return { ok: true, seesAll: parsed.data.seesAll, count: ids.length };
   });
 }

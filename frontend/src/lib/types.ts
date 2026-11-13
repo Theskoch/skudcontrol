@@ -101,6 +101,7 @@ export type Account = {
   role: Role;
   isBlocked: boolean;
   isPrimary: boolean;
+  seesAll: boolean;
   lastLoginAt: string | null;
   createdAt: string;
 };
@@ -148,3 +149,25 @@ export type EmployeeTraffic = {
   states: TrafficStateDay[];
   events: TrafficEvent[];
 };
+
+export type ReportPeriodType = "today" | "yesterday" | "week" | "month" | "all" | "date";
+
+export type ReportFieldDef = { key: string; label: string; group: "employee" | "metrics" };
+
+export type ReportTemplateInput = {
+  name: string;
+  fields: string[];
+  allEmployees: boolean;
+  employeeIds: string[];
+  periodType: ReportPeriodType;
+  periodDate: string | null;
+};
+
+export type ReportTemplate = ReportTemplateInput & {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: { displayName: string } | null;
+};
+
+export type EmployeeAccess = { seesAll: boolean; employeeIds: string[] };
