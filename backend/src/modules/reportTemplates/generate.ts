@@ -25,6 +25,19 @@ export function resolveTemplateRange(
   return resolveRange(template.periodType as "today" | "yesterday" | "week" | "month" | "all", timeZone, now);
 }
 
+/** "09:10" for a one-day report, "10.11 09:10" when the period spans several days. */
+function fmtMoment(date: Date | null, singleDay: boolean, timeZone: string): string {
+  if (!date) return "";
+  return new Intl.DateTimeFormat("ru-RU", {
+    timeZone,
+    ...(singleDay ? {} : { day: "2-digit", month: "2-digit" }),
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+    .format(date)
+    .replace(",", "");
+}
+
 function average(values: number[]): number | null {
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 }
@@ -106,6 +119,10 @@ export async function buildReportHtml(
   const range = resolveTemplateRange(template, timeZone, now);
   const thresholds = needsMetrics ? await getThresholds(prisma) : null;
 
+  const singleDay =
+    range.start !== null &&
+    zonedDayKey(range.start, timeZone) === zonedDayKey(new Date(range.end.getTime() - 1), timeZone);
+
   const rows: ReportRow[] = [];
   for (const employee of employees) {
     let metrics: ReportRow["metrics"] = null;
@@ -117,8 +134,13 @@ export async function buildReportHtml(
       const departures = dashboard.combinedTimeline
         .filter((d) => d.departure)
         .map((d) => minutesSinceMidnight(d.departure!, timeZone));
+      const days = [...dashboard.combinedTimeline].sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+      const firstArrival = days.find((d) => d.arrival)?.arrival ?? null;
+      const lastDeparture = [...days].reverse().find((d) => d.departure)?.departure ?? null;
       metrics = {
         ...dashboard.period,
+        arrivalText: fmtMoment(firstArrival, singleDay, timeZone),
+        departureText: fmtMoment(lastDeparture, singleDay, timeZone),
         avgArrivalMinutes: average(arrivals),
         avgDepartureMinutes: average(departures),
       };

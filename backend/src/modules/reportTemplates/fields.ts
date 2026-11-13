@@ -8,7 +8,15 @@ export type ReportRow = {
     personnelNumber: string | null;
   };
   /** null when the report has no metric columns (metrics are not computed then). */
-  metrics: (DailyMetrics & { avgArrivalMinutes: number | null; avgDepartureMinutes: number | null }) | null;
+  metrics:
+    | (DailyMetrics & {
+        avgArrivalMinutes: number | null;
+        avgDepartureMinutes: number | null;
+        /** First arrival / last departure in the period, pre-formatted ("" = none). */
+        arrivalText: string;
+        departureText: string;
+      })
+    | null;
 };
 
 export type ReportFieldDef = {
@@ -50,6 +58,8 @@ export const REPORT_FIELDS: ReportFieldDef[] = [
   { key: "latenessTime", label: "Опоздания, ч:мм", group: "metrics", value: (r) => hm(metric(r).latenessMinutes), kind: "num", tone: "bad" },
   { key: "earlyLeaveTime", label: "Ранний уход, ч:мм", group: "metrics", value: (r) => hm(metric(r).earlyLeaveMinutes), kind: "num", tone: "bad" },
   { key: "absenceTime", label: "Отсутствие, ч:мм", group: "metrics", value: (r) => hm(metric(r).absenceMinutes), kind: "num", tone: "bad" },
+  { key: "arrival", label: "Приход", group: "metrics", value: (r) => metric(r).arrivalText, kind: "num" },
+  { key: "departure", label: "Уход", group: "metrics", value: (r) => metric(r).departureText, kind: "num" },
   { key: "avgArrival", label: "Приход (средний)", group: "metrics", value: (r) => clock(metric(r).avgArrivalMinutes), kind: "num" },
   { key: "avgDeparture", label: "Уход (средний)", group: "metrics", value: (r) => clock(metric(r).avgDepartureMinutes), kind: "num" },
 ];
